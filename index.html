@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>待办</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500&display=swap');
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{min-height:100vh;background:linear-gradient(145deg,#1a1a2e 0%,#16213e 50%,#1a1a2e 100%);font-family:'Noto Sans SC',sans-serif;color:#e8e8e8}
+
+```
+/* 主容器 */
+.app{max-width:600px;margin:0 auto;padding:30px 20px;min-height:100vh}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px}
+.title{font-size:24px;font-weight:300;letter-spacing:4px;color:#a8b4c4}
+.header-btns{display:flex;gap:10px}
+.icon-btn{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#a8b4c4;width:40px;height:40px;border-radius:12px;cursor:pointer;font-size:18px;transition:all .2s}
+.icon-btn:hover{background:rgba(255,255,255,0.1);color:#fff}
+.icon-btn.active{background:rgba(120,180,255,0.2);border-color:rgba(120,180,255,0.3);color:#78b4ff}
+
+/* 输入区 */
+.input-area{display:flex;gap:10px;margin-bottom:25px}
+.task-input{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px 18px;color:#e8e8e8;font-size:15px;font-family:inherit;outline:none;transition:all .2s}
+.task-input::placeholder{color:#6b7280}
+.task-input:focus{border-color:rgba(120,180,255,0.4);background:rgba(255,255,255,0.08)}
+.add-btn{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border:none;color:#fff;padding:14px 20px;border-radius:12px;cursor:pointer;font-size:14px;font-family:inherit;transition:all .2s;white-space:nowrap}
+.add-btn:hover{transform:translateY(-1px);box-shadow:0 4px 15px rgba(102,126,234,0.4)}
+
+/* 任务列表 */
+.task-list{display:flex;flex-direction:column;gap:10px}
+.task-item{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:16px;cursor:grab;transition:all .2s;position:relative}
+.task-item:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.1)}
+.task-item.dragging{opacity:0.5;transform:scale(1.02)}
+.task-item.done{opacity:0.5}
+.task-item.done .task-title{text-decoration:line-through;color:#6b7280}
+.task-item.overdue .task-deadline{color:#f87171}
+
+.task-main{display:flex;align-items:flex-start;gap:12px}
+.task-checkbox{width:22px;height:22px;border:2px solid rgba(255,255,255,0.2);border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;margin-top:2px}
+.task-checkbox:hover{border-color:rgba(120,180,255,0.5)}
+.task-item.done .task-checkbox{background:linear-gradient(135deg,#667eea,#764ba2);border-color:transparent}
+.task-checkbox::after{content:'✓';color:#fff;font-size:12px;opacity:0;transition:opacity .2s}
+.task-item.done .task-checkbox::after{opacity:1}
+
+.task-content{flex:1;min-width:0}
+.task-title{font-size:15px;color:#e8e8e8;word-break:break-word}
+.task-meta{display:flex;gap:12px;margin-top:8px;flex-wrap:wrap}
+.task-deadline{font-size:12px;color:#78b4ff;display:flex;align-items:center;gap:4px}
+
+.task-actions{display:flex;gap:6px;opacity:0;transition:opacity .2s}
+.task-item:hover .task-actions{opacity:1}
+.task-action{background:none;border:none;color:#6b7280;cursor:pointer;padding:6px;border-radius:6px;font-size:14px;transition:all .2s}
+.task-action:hover{color:#e8e8e8;background:rgba(255,255,255,0.1)}
+.task-action.delete:hover{color:#f87171}
+
+/* 空状态 */
+.empty-state{text-align:center;padding:60px 20px;color:#6b7280}
+.empty-icon{font-size:48px;margin-bottom:16px;opacity:0.5}
+.empty-text{font-size:14px;letter-spacing:1px}
+
+/* 弹窗 */
+.modal-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:all .3s;z-index:100;backdrop-filter:blur(4px)}
+.modal-overlay.visible{opacity:1;visibility:visible}
+.modal{background:#1e2538;border-radius:20px;padding:30px;width:90%;max-width:400px;transform:scale(0.9);transition:transform .3s}
+.modal-overlay.visible .modal{transform:scale(1)}
+.modal-title{font-size:18px;font-weight:400;margin-bottom:20px;color:#a8b4c4;letter-spacing:2px}
+.modal-input{width:100%;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;color:#e8e8e8;font-size:14px;font-family:inherit;outline:none;margin-bottom:15px}
+.modal-input:focus{border-color:rgba(120,180,255,0.4)}
+.modal-row{display:flex;gap:10px;margin-bottom:15px}
+.modal-row .modal-input{margin-bottom:0}
+.modal-btns{display:flex;gap:10px;justify-content:flex-end;margin-top:20px}
+.modal-btn{padding:10px 20px;border-radius:10px;border:none;font-size:14px;font-family:inherit;cursor:pointer;transition:all .2s}
+.modal-btn.cancel{background:rgba(255,255,255,0.1);color:#a8b4c4}
+.modal-btn.cancel:hover{background:rgba(255,255,255,0.15)}
+.modal-btn.confirm{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.modal-btn.confirm:hover{box-shadow:0 4px 15px rgba(102,126,234,0.4)}
+
+/* 倒计时页面 */
+.timer-page{position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(145deg,#0f0f1a 0%,#1a1a2e 50%,#0f0f1a 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:all .5s;z-index:200}
+.timer-page.visible{opacity:1;visibility:visible}
+
+.timer-close{position:absolute;top:30px;right:30px;background:none;border:none;color:#6b7280;font-size:28px;cursor:pointer;transition:color .2s}
+.timer-close:hover{color:#e8e8e8}
+
+.timer-task-name{font-size:16px;color:#6b7280;letter-spacing:2px;margin-bottom:20px;text-align:center;padding:0 40px}
+.timer-display{font-size:84px;font-weight:200;color:#e8e8e8;letter-spacing:4px;margin-bottom:40px;font-variant-numeric:tabular-nums}
+
+.timer-controls{display:flex;gap:15px;margin-bottom:50px}
+.timer-ctrl-btn{width:60px;height:60px;border-radius:50%;border:2px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);color:#a8b4c4;font-size:22px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center}
+.timer-ctrl-btn:hover{border-color:rgba(120,180,255,0.4);color:#fff;background:rgba(255,255,255,0.08)}
+.timer-ctrl-btn.primary{background:linear-gradient(135deg,#667eea,#764ba2);border:none;color:#fff}
+.timer-ctrl-btn.primary:hover{transform:scale(1.05);box-shadow:0 4px 20px rgba(102,126,234,0.5)}
+
+/* 音效选择 */
+.sound-section{display:flex;flex-direction:column;align-items:center;gap:15px}
+.sound-label{font-size:12px;color:#6b7280;letter-spacing:2px}
+.sound-btns{display:flex;gap:10px}
+.sound-btn{padding:10px 18px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);color:#6b7280;font-size:13px;cursor:pointer;transition:all .2s;font-family:inherit}
+.sound-btn:hover{border-color:rgba(255,255,255,0.2);color:#a8b4c4}
+.sound-btn.active{background:rgba(120,180,255,0.15);border-color:rgba(120,180,255,0.3);color:#78b4ff}
+
+/* 火焰动画 */
+.fire-container{position:absolute;bottom:60px;display:flex;gap:4px;opacity:0;transition:opacity .5s}
+.fire-container.visible{opacity:1}
+.flame{width:8px;background:linear-gradient(to top,#ff6b35,#ffa500,#ffcc00);border-radius:50% 50% 50% 50% / 60% 60% 40% 40%;animation:flicker 0.5s ease-in-out infinite alternate}
+.flame:nth-child(1){height:30px;animation-delay:0s}
+.flame:nth-child(2){height:45px;animation-delay:0.1s}
+.flame:nth-child(3){height:35px;animation-delay:0.2s}
+.flame:nth-child(4){height:50px;animation-delay:0.15s}
+.flame:nth-child(5){height:40px;animation-delay:0.25s}
+.flame:nth-child(6){height:32px;animation-delay:0.05s}
+@keyframes flicker{0%{transform:scaleY(1) scaleX(1);opacity:1}100%{transform:scaleY(1.1) scaleX(0.9);opacity:0.8}}
+
+.float-msg{position:fixed;bottom:25px;left:50%;transform:translateX(-50%) translateY(20px);background:rgba(102,126,234,0.9);color:#fff;padding:10px 20px;border-radius:25px;font-size:13px;opacity:0;transition:all .3s;pointer-events:none;z-index:300}
+.float-msg.visible{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:500px){.timer-display{font-size:56px}.input-area{flex-direction:column}.add-btn{width:100%}}
+```
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1 class="title">待办</h1>
+      <div class="header-btns">
+        <button class="icon-btn" id="timerPageBtn" title="专注模式">⏱</button>
+      </div>
+    </header>
+
+```
+<div class="input-area">
+  <input type="text" class="task-input" id="taskInput" placeholder="添加新任务..." maxlength="100">
+  <button class="add-btn" id="addBtn">添加</button>
+</div>
+
+<div class="task-list" id="taskList"></div>
+```
+
+  </div>
+
+  <!-- 编辑弹窗 -->
+
+  <div class="modal-overlay" id="editModal">
+    <div class="modal">
+      <div class="modal-title">编辑任务</div>
+      <input type="text" class="modal-input" id="editTitle" placeholder="任务内容">
+      <div class="modal-row">
+        <input type="date" class="modal-input" id="editDate">
+        <input type="time" class="modal-input" id="editTime">
+      </div>
+      <div class="modal-btns">
+        <button class="modal-btn cancel" id="editCancel">取消</button>
+        <button class="modal-btn confirm" id="editConfirm">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 倒计时弹窗 -->
+
+  <div class="modal-overlay" id="timerModal">
+    <div class="modal">
+      <div class="modal-title">设置倒计时</div>
+      <div class="modal-row">
+        <input type="number" class="modal-input" id="timerHours" placeholder="时" min="0" max="23">
+        <input type="number" class="modal-input" id="timerMinutes" placeholder="分" min="0" max="59">
+        <input type="number" class="modal-input" id="timerSeconds" placeholder="秒" min="0" max="59">
+      </div>
+      <div class="modal-btns">
+        <button class="modal-btn cancel" id="timerCancel">取消</button>
+        <button class="modal-btn confirm" id="timerConfirm">开始</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 倒计时页面 -->
+
+  <div class="timer-page" id="timerPage">
+    <button class="timer-close" id="timerClose">×</button>
+    <div class="timer-task-name" id="timerTaskName">专注时间</div>
+    <div class="timer-display" id="timerDisplay">25:00</div>
+    <div class="timer-controls">
+      <button class="timer-ctrl-btn" id="timerReset" title="重置">↺</button>
+      <button class="timer-ctrl-btn primary" id="timerToggle" title="开始/暂停">▶</button>
+      <button class="timer-ctrl-btn" id="timerAdd5" title="+5分钟">+5</button>
+    </div>
+    <div class="sound-section">
+      <div class="sound-label">白噪音</div>
+      <div class="sound-btns">
+        <button class="sound-btn" data-sound="none">无</button>
+        <button class="sound-btn" data-sound="fire">🔥 壁炉</button>
+        <button class="sound-btn" data-sound="rain">🌧 雨声</button>
+        <button class="sound-btn" data-sound="wind">🍃 风声</button>
+        <button class="sound-btn" data-sound="night">🌙 夜晚</button>
+      </div>
+    </div>
+    <div class="fire-container" id="fireContainer">
+      <div class="flame"></div><div class="flame"></div><div class="flame"></div>
+      <div class="flame"></div><div class="flame"></div><div class="flame"></div>
+    </div>
+  </div>
+
+  <div class="float-msg" id="floatMsg"></div>
+
+  <script>
+    // 状态
+    let tasks = [];
+    let editingId = null;
+    let timerTaskId = null;
+    let timerTotal = 25 * 60;
+    let timerRemaining = 25 * 60;
+    let timerInterval = null;
+    let timerRunning = false;
+    let currentSound = 'none';
+    let audioContext = null;
+    let noiseNode = null;
+    let gainNode = null;
+
+    // 元素
+    const $ = id => document.getElementById(id);
+    const taskInput = $('taskInput');
+    const taskList = $('taskList');
+    const editModal = $('editModal');
+    const timerModal = $('timerModal');
+    const timerPage = $('timerPage');
+    const timerDisplay = $('timerDisplay');
+    const timerTaskName = $('timerTaskName');
+    const floatMsg = $('floatMsg');
+    const fireContainer = $('fireContainer');
+
+    // 工具函数
+    const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+    const showMsg = m => { floatMsg.textContent = m; floatMsg.classList.add('visible'); setTimeout(() => floatMsg.classList.remove('visible'), 2000); };
+
+    // 存储
+    function load() {
+      try {
+        const saved = localStorage.getItem('todo_tasks');
+        if (saved) tasks = JSON.parse(saved);
+      } catch(e) { tasks = []; }
+      render();
+    }
+
+    function save() {
+      localStorage.setItem('todo_tasks', JSON.stringify(tasks));
+    }
+
+    // 渲染任务列表
+    function render() {
+      if (tasks.length === 0) {
+        taskList.innerHTML = '<div class="empty-state"><div class="empty-icon">✨</div><div class="empty-text">暂无待办事项</div></div>';
+        return;
+      }
+
+      const now = new Date();
+      taskList.innerHTML = tasks.map(t => {
+        const isOverdue = t.deadline && !t.done && new Date(t.deadline) < now;
+        const deadlineStr = t.deadline ? formatDeadline(t.deadline) : '';
+        return `
+          <div class="task-item ${t.done ? 'done' : ''} ${isOverdue ? 'overdue' : ''}" data-id="${t.id}" draggable="true">
+            <div class="task-main">
+              <div class="task-checkbox" data-action="toggle"></div>
+              <div class="task-content">
+                <div class="task-title">${escapeHtml(t.title)}</div>
+                ${deadlineStr ? `<div class="task-meta"><span class="task-deadline">📅 ${deadlineStr}</span></div>` : ''}
+              </div>
+              <div class="task-actions">
+                <button class="task-action" data-action="timer" title="倒计时">⏱</button>
+                <button class="task-action" data-action="edit" title="编辑">✎</button>
+                <button class="task-action delete" data-action="delete" title="删除">✕</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // 绑定拖拽
+      document.querySelectorAll('.task-item').forEach(el => {
+        el.addEventListener('dragstart', handleDragStart);
+        el.addEventListener('dragend', handleDragEnd);
+        el.addEventListener('dragover', handleDragOver);
+        el.addEventListener('drop', handleDrop);
+      });
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function formatDeadline(dl) {
+      const d = new Date(dl);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const diff = (target - today) / (1000 * 60 * 60 * 24);
+      
+      const timeStr = d.getHours() || d.getMinutes() ? ` ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}` : '';
+      
+      if (diff === 0) return '今天' + timeStr;
+      if (diff === 1) return '明天' + timeStr;
+      if (diff === -1) return '昨天' + timeStr;
+      if (diff > 1 && diff <= 7) return `${Math.floor(diff)}天后` + timeStr;
+      return `${d.getMonth()+1}/${d.getDate()}` + timeStr;
+    }
+
+    // 添加任务
+    function addTask() {
+      const title = taskInput.value.trim();
+      if (!title) return;
+      tasks.unshift({ id: genId(), title, done: false, deadline: null });
+      save();
+      render();
+      taskInput.value = '';
+      showMsg('已添加');
+    }
+
+    $('addBtn').onclick = addTask;
+    taskInput.onkeypress = e => { if (e.key === 'Enter') addTask(); };
+
+    // 任务操作
+    taskList.onclick = e => {
+      const action = e.target.dataset.action;
+      const item = e.target.closest('.task-item');
+      if (!action || !item) return;
+      
+      const id = item.dataset.id;
+      const task = tasks.find(t => t.id === id);
+      if (!task) return;
+
+      if (action === 'toggle') {
+        task.done = !task.done;
+        save();
+        render();
+        if (task.done) showMsg('完成！');
+      } else if (action === 'edit') {
+        editingId = id;
+        $('editTitle').value = task.title;
+        if (task.deadline) {
+          const d = new Date(task.deadline);
+          $('editDate').value = d.toISOString().split('T')[0];
+          $('editTime').value = d.toTimeString().slice(0,5);
+        } else {
+          $('editDate').value = '';
+          $('editTime').value = '';
+        }
+        editModal.classList.add('visible');
+      } else if (action === 'delete') {
+        tasks = tasks.filter(t => t.id !== id);
+        save();
+        render();
+        showMsg('已删除');
+      } else if (action === 'timer') {
+        timerTaskId = id;
+        timerTaskName.textContent = task.title;
+        $('timerHours').value = '';
+        $('timerMinutes').value = '25';
+        $('timerSeconds').value = '';
+        timerModal.classList.add('visible');
+      }
+    };
+
+    // 编辑弹窗
+    $('editCancel').onclick = () => editModal.classList.remove('visible');
+    $('editConfirm').onclick = () => {
+      const task = tasks.find(t => t.id === editingId);
+      if (!task) return;
+      task.title = $('editTitle').value.trim() || task.title;
+      const date = $('editDate').value;
+      const time = $('editTime').value;
+      task.deadline = date ? new Date(date + (time ? 'T' + time : 'T00:00')).toISOString() : null;
+      save();
+      render();
+      editModal.classList.remove('visible');
+      showMsg('已保存');
+    };
+    editModal.onclick = e => { if (e.target === editModal) editModal.classList.remove('visible'); };
+
+    // 倒计时弹窗
+    $('timerCancel').onclick = () => timerModal.classList.remove('visible');
+    $('timerConfirm').onclick = () => {
+      const h = parseInt($('timerHours').value) || 0;
+      const m = parseInt($('timerMinutes').value) || 0;
+      const s = parseInt($('timerSeconds').value) || 0;
+      timerTotal = h * 3600 + m * 60 + s;
+      if (timerTotal <= 0) timerTotal = 25 * 60;
+      timerRemaining = timerTotal;
+      timerRunning = false;
+      updateTimerDisplay();
+      timerModal.classList.remove('visible');
+      timerPage.classList.add('visible');
+      $('timerToggle').innerHTML = '▶';
+    };
+    timerModal.onclick = e => { if (e.target === timerModal) timerModal.classList.remove('visible'); };
+
+    // 直接打开倒计时页面
+    $('timerPageBtn').onclick = () => {
+      timerTaskId = null;
+      timerTaskName.textContent = '专注时间';
+      $('timerHours').value = '';
+      $('timerMinutes').value = '25';
+      $('timerSeconds').value = '';
+      timerModal.classList.add('visible');
+    };
+
+    // 倒计时控制
+    $('timerClose').onclick = () => {
+      stopTimer();
+      stopSound();
+      timerPage.classList.remove('visible');
+    };
+
+    $('timerToggle').onclick = () => {
+      if (timerRunning) {
+        stopTimer();
+        $('timerToggle').innerHTML = '▶';
+      } else {
+        startTimer();
+        $('timerToggle').innerHTML = '⏸';
+      }
+    };
+
+    $('timerReset').onclick = () => {
+      stopTimer();
+      timerRemaining = timerTotal;
+      updateTimerDisplay();
+      $('timerToggle').innerHTML = '▶';
+    };
+
+    $('timerAdd5').onclick = () => {
+      timerRemaining += 5 * 60;
+      timerTotal += 5 * 60;
+      updateTimerDisplay();
+    };
+
+    function startTimer() {
+      timerRunning = true;
+      timerInterval = setInterval(() => {
+        timerRemaining--;
+        updateTimerDisplay();
+        if (timerRemaining <= 0) {
+          stopTimer();
+          $('timerToggle').innerHTML = '▶';
+          showMsg('时间到！');
+          // 播放提示音
+          playAlert();
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      timerRunning = false;
+      if (timerInterval) clearInterval(timerInterval);
+    }
+
+    function updateTimerDisplay() {
+      const h = Math.floor(timerRemaining / 3600);
+      const m = Math.floor((timerRemaining % 3600) / 60);
+      const s = timerRemaining % 60;
+      timerDisplay.textContent = h > 0 
+        ? `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`
+        : `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    }
+
+    function playAlert() {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 800;
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+    }
+
+    // 音效
+    document.querySelectorAll('.sound-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSound = btn.dataset.sound;
+        stopSound();
+        if (currentSound !== 'none') {
+          playSound(currentSound);
+        }
+        fireContainer.classList.toggle('visible', currentSound === 'fire');
+      };
+    });
+
+    function playSound(type) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      if (type === 'fire') {
+        // 壁炉：低频噪音 + 不规则crackling
+        noiseNode = audioContext.createBufferSource();
+        const bufferSize = audioContext.sampleRate * 2;
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = (Math.random() * 2 - 1) * (Math.random() < 0.1 ? 0.5 : 0.1);
+        }
+        noiseNode.buffer = buffer;
+        noiseNode.loop = true;
+        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+        
+        gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.4;
+        
+        noiseNode.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        noiseNode.start();
+        
+      } else if (type === 'rain') {
+        noiseNode = audioContext.createBufferSource();
+        const bufferSize = audioContext.sampleRate * 2;
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        noiseNode.buffer = buffer;
+        noiseNode.loop = true;
+        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1000;
+        filter.Q.value = 0.5;
+        
+        gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.15;
+        
+        noiseNode.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        noiseNode.start();
+        
+      } else if (type === 'wind') {
+        noiseNode = audioContext.createBufferSource();
+        const bufferSize = audioContext.sampleRate * 2;
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        noiseNode.buffer = buffer;
+        noiseNode.loop = true;
+        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 500;
+        
+        // LFO for wind variation
+        const lfo = audioContext.createOscillator();
+        const lfoGain = audioContext.createGain();
+        lfo.frequency.value = 0.2;
+        lfoGain.gain.value = 200;
+        lfo.connect(lfoGain);
+        lfoGain.connect(filter.frequency);
+        lfo.start();
+        
+        gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.2;
+        
+        noiseNode.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        noiseNode.start();
+        
+      } else if (type === 'night') {
+        // 夜晚：很轻的白噪音 + 偶尔的虫鸣
+        noiseNode = audioContext.createBufferSource();
+        const bufferSize = audioContext.sampleRate * 2;
+        const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        noiseNode.buffer = buffer;
+        noiseNode.loop = true;
+        
+        const filter = audioContext.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 2000;
+        
+        gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.03;
+        
+        noiseNode.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        noiseNode.start();
+      }
+    }
+
+    function stopSound() {
+      if (noiseNode) {
+        try { noiseNode.stop(); } catch(e) {}
+        noiseNode = null;
+      }
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+      fireContainer.classList.remove('visible');
+    }
+
+    // 拖拽排序
+    let draggedItem = null;
+
+    function handleDragStart(e) {
+      draggedItem = this;
+      setTimeout(() => this.classList.add('dragging'), 0);
+    }
+
+    function handleDragEnd(e) {
+      this.classList.remove('dragging');
+      draggedItem = null;
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      if (this === draggedItem) return;
+      
+      const fromId = draggedItem.dataset.id;
+      const toId = this.dataset.id;
+      const fromIndex = tasks.findIndex(t => t.id === fromId);
+      const toIndex = tasks.findIndex(t => t.id === toId);
+      
+      const [moved] = tasks.splice(fromIndex, 1);
+      tasks.splice(toIndex, 0, moved);
+      
+      save();
+      render();
+    }
+
+    // 初始化
+    load();
+    document.querySelectorAll('.sound-btn')[0].classList.add('active');
+  </script>
+
+</body>
+</html>
